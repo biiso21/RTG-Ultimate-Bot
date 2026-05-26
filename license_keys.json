@@ -1,0 +1,1 @@
+echo '{"licenses": {}, "master_key": "RTG_Ultimate_2024_Secure"}' > license_keys.json

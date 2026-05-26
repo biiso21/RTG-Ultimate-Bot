@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block title %}الإعدادات - RTG Bot{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 mx-auto">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h4><i class="fas fa-cog"></i> إعدادات السيرفر</h4>
+            </div>
+            <div class="card-body">
+                <form id="settings-form">
+                    <h5>📈 إعدادات المستويات</h5>
+                    <div class="mb-3">
+                        <label>قناة إعلانات رفع المستوى</label>
+                        <select id="level-channel" class="form-control">
+                            <option value="">القناة الافتراضية</option>
+                            {% for channel in guild.text_channels %}
+                                <option value="{{ channel.id }}">{{ channel.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3 form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="level-announce">
+                        <label class="form-check-label">تفعيل إعلانات رفع المستوى</label>
+                    </div>
+                    
+                    <hr>
+                    
+                    <h5>👋 إعدادات الترحيب</h5>
+                    <div class="mb-3">
+                        <label>قناة الترحيب</label>
+                        <select id="welcome-channel" class="form-control">
+                            <option value="">لا يوجد</option>
+                            {% for channel in guild.text_channels %}
+                                <option value="{{ channel.id }}">{{ channel.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3 form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="welcome-enabled">
+                        <label class="form-check-label">تفعيل رسائل الترحيب</label>
+                    </div>
+                    <div class="mb-3 form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="farewell-enabled">
+                        <label class="form-check-label">تفعيل رسائل الوداع</label>
+                    </div>
+                    
+                    <hr>
+                    
+                    <h5>🛡️ إعدادات الحماية</h5>
+                    <div class="mb-3 form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="antinuke-enabled">
+                        <label class="form-check-label">تفعيل نظام الحماية (Anti-Nuke)</label>
+                    </div>
+                    <div class="mb-3">
+                        <label>قناة سجلات الحماية</label>
+                        <select id="antinuke-log" class="form-control">
+                            <option value="">لا يوجد</option>
+                            {% for channel in guild.text_channels %}
+                                <option value="{{ channel.id }}">{{ channel.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">حفظ الإعدادات</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

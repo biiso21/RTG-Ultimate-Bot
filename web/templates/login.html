@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block title %}تسجيل الدخول - RTG Bot{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-6 mx-auto">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white text-center">
+                <h4><i class="fab fa-discord"></i> تسجيل الدخول عبر ديسكورد</h4>
+            </div>
+            <div class="card-body text-center">
+                <p>سجل الدخول باستخدام حساب ديسكورد للوصول إلى لوحة التحكم</p>
+                <a href="https://discord.com/api/oauth2/authorize?client_id=YOUR_CLIENT_ID&redirect_uri=YOUR_REDIRECT_URI&response_type=code&scope=identify%20guilds" 
+                   class="btn btn-primary btn-lg">
+                    <i class="fab fa-discord"></i> تسجيل الدخول بديسكورد
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
