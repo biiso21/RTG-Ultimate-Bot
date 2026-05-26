@@ -1,83 +1,154 @@
-{% extends "base.html" %}
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RTG Ultimate Bot</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; font-family: 'Cairo', sans-serif; }
+        .card { border-radius: 20px; border: none; transition: transform 0.3s; }
+        .card:hover { transform: translateY(-10px); }
+        .stat-card { background: white; border-radius: 15px; padding: 20px; text-align: center; margin: 10px; }
+        .stat-number { font-size: 2.5rem; font-weight: bold; color: #667eea; }
+        .btn-custom { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none; border-radius: 30px; padding: 12px 30px; color: white; }
+        .footer { background: rgba(0,0,0,0.8); color: white; padding: 20px; text-align: center; margin-top: 50px; }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/"><i class="fas fa-robot"></i> RTG Ultimate Bot</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item"><a class="nav-link" href="/">الرئيسية</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/dashboard">لوحة التحكم</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/economy">الاقتصاد</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/leveling">المستويات</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/moderation">الإدارة</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/tickets">التذاكر</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
 
-{% block title %}RTG Ultimate Bot - الصفحة الرئيسية{% endblock %}
+    <div class="container mt-5">
+        <div class="row text-center text-white mb-5">
+            <div class="col-12">
+                <h1 class="display-3 fw-bold">🎮 RTG Ultimate Bot</h1>
+                <p class="lead">أفضل بوت متكامل لإدارة سيرفرات ديسكورد</p>
+                <a href="https://discord.com/oauth2/authorize?client_id=YOUR_CLIENT_ID&permissions=8&scope=bot%20applications.commands" class="btn btn-custom btn-lg mt-3">
+                    <i class="fab fa-discord"></i> إضافة البوت
+                </a>
+            </div>
+        </div>
 
-{% block content %}
-<div class="row">
-    <div class="col-lg-8 mx-auto text-center">
-        <h1 class="display-4 fw-bold text-primary mb-4">
-            <i class="fas fa-robot"></i> RTG Ultimate Bot
-        </h1>
-        <p class="lead mb-4">
-            أفضل بوت متكامل لإدارة سيرفرات ديسكورد مع جميع الميزات التي تحتاجها!
-        </p>
-        
+        <div class="row mt-5" id="stats">
+            <div class="col-md-4">
+                <div class="stat-card">
+                    <i class="fas fa-server fa-3x text-primary"></i>
+                    <div class="stat-number" id="guilds-count">...</div>
+                    <h5>عدد السيرفرات</h5>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="stat-card">
+                    <i class="fas fa-users fa-3x text-success"></i>
+                    <div class="stat-number" id="users-count">...</div>
+                    <h5>عدد المستخدمين</h5>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="stat-card">
+                    <i class="fas fa-clock fa-3x text-warning"></i>
+                    <div class="stat-number" id="uptime">...</div>
+                    <h5>وقت التشغيل</h5>
+                </div>
+            </div>
+        </div>
+
         <div class="row mt-5">
-            <div class="col-md-4 mb-3">
-                <div class="card h-100 shadow-sm">
+            <div class="col-md-4 mb-4">
+                <div class="card shadow-lg">
                     <div class="card-body text-center">
                         <i class="fas fa-coins fa-3x text-warning mb-3"></i>
-                        <h5 class="card-title">💰 نظام الاقتصاد</h5>
-                        <p class="card-text">عملة خاصة، متجر، وظائف، سرقة، قمار ومكافآت يومية</p>
+                        <h4>💰 نظام الاقتصاد</h4>
+                        <p>عملة خاصة، متجر، وظائف، تحويلات، مكافآت يومية</p>
+                        <a href="/economy" class="btn btn-outline-primary">عرض التفاصيل</a>
                     </div>
                 </div>
             </div>
-            <div class="col-md-4 mb-3">
-                <div class="card h-100 shadow-sm">
+            <div class="col-md-4 mb-4">
+                <div class="card shadow-lg">
                     <div class="card-body text-center">
                         <i class="fas fa-chart-line fa-3x text-success mb-3"></i>
-                        <h5 class="card-title">📈 نظام المستويات</h5>
-                        <p class="card-text">خبرة تلقائية، رتب تلقائية، متصدرين وشريط تقدم</p>
+                        <h4>📈 نظام المستويات</h4>
+                        <p>خبرة تلقائية، رتب تلقائية، متصدرين</p>
+                        <a href="/leveling" class="btn btn-outline-primary">عرض التفاصيل</a>
                     </div>
                 </div>
             </div>
-            <div class="col-md-4 mb-3">
-                <div class="card h-100 shadow-sm">
+            <div class="col-md-4 mb-4">
+                <div class="card shadow-lg">
                     <div class="card-body text-center">
                         <i class="fas fa-music fa-3x text-danger mb-3"></i>
-                        <h5 class="card-title">🎵 نظام الموسيقى</h5>
-                        <p class="card-text">تشغيل من يوتيوب، قائمة انتظار، تخطي وإيقاف مؤقت</p>
+                        <h4>🎵 نظام الموسيقى</h4>
+                        <p>تشغيل من يوتيوب، قائمة انتظار</p>
+                        <a href="#" class="btn btn-outline-primary">عرض التفاصيل</a>
                     </div>
                 </div>
             </div>
-            <div class="col-md-4 mb-3">
-                <div class="card h-100 shadow-sm">
+            <div class="col-md-4 mb-4">
+                <div class="card shadow-lg">
                     <div class="card-body text-center">
                         <i class="fas fa-shield-alt fa-3x text-info mb-3"></i>
-                        <h5 class="card-title">🛡️ نظام الحماية</h5>
-                        <p class="card-text">حماية ضد الهجمات، Anti-Nuke ونسخ احتياطية</p>
+                        <h4>🛡️ نظام الحماية</h4>
+                        <p>Anti-Nuke، حماية من الهجمات، نسخ احتياطي</p>
+                        <a href="/moderation" class="btn btn-outline-primary">عرض التفاصيل</a>
                     </div>
                 </div>
             </div>
-            <div class="col-md-4 mb-3">
-                <div class="card h-100 shadow-sm">
+            <div class="col-md-4 mb-4">
+                <div class="card shadow-lg">
                     <div class="card-body text-center">
                         <i class="fas fa-ticket-alt fa-3x text-primary mb-3"></i>
-                        <h5 class="card-title">🎫 نظام التذاكر</h5>
-                        <p class="card-text">دعم فني متكامل مع حفظ المحادثات</p>
+                        <h4>🎫 نظام التذاكر</h4>
+                        <p>دعم فني متكامل مع حفظ المحادثات</p>
+                        <a href="/tickets" class="btn btn-outline-primary">عرض التفاصيل</a>
                     </div>
                 </div>
             </div>
-            <div class="col-md-4 mb-3">
-                <div class="card h-100 shadow-sm">
+            <div class="col-md-4 mb-4">
+                <div class="card shadow-lg">
                     <div class="card-body text-center">
                         <i class="fas fa-gift fa-3x text-warning mb-3"></i>
-                        <h5 class="card-title">🎁 نظام السحوبات</h5>
-                        <p class="card-text">سحوبات مع مشاركة بالزر وإعادة سحب</p>
+                        <h4>🎁 نظام السحوبات</h4>
+                        <p>سحوبات مع مشاركة بالزر وإعادة سحب</p>
+                        <a href="/giveaways" class="btn btn-outline-primary">عرض التفاصيل</a>
                     </div>
                 </div>
             </div>
         </div>
-        
-        <div class="mt-5">
-            <a href="{{ url_for('login') }}" class="btn btn-primary btn-lg mx-2">
-                <i class="fas fa-sign-in-alt"></i> تسجيل الدخول
-            </a>
-            <a href="https://discord.com/oauth2/authorize?client_id=YOUR_CLIENT_ID&permissions=8&scope=bot%20applications.commands" 
-               class="btn btn-success btn-lg mx-2" target="_blank">
-                <i class="fab fa-discord"></i> إضافة البوت
-            </a>
-        </div>
     </div>
-</div>
-{% endblock %}
+
+    <div class="footer">
+        <p>&copy; 2024 RTG Ultimate Bot - جميع الحقوق محفوظة</p>
+        <p><a href="https://github.com" class="text-white">GitHub</a> | <a href="#" class="text-white">Discord</a></p>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        fetch('/api/stats')
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById('guilds-count').innerText = data.guilds;
+                document.getElementById('users-count').innerText = data.users;
+                document.getElementById('uptime').innerText = data.uptime;
+            });
+    </script>
+</body>
+</html>
