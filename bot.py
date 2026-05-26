@@ -1,3 +1,14 @@
+# ========== تهيئة قاعدة البيانات ==========
+from utils.database import init_db
+
+# تشغيل تهيئة قاعدة البيانات عند بدء البوت
+async def setup_database():
+    await init_db()
+    print("✅ قاعدة البيانات جاهزة")
+
+# تشغيل التهيئة
+asyncio.create_task(setup_database())
+# ========================================
 import discord
 from discord.ext import commands
 from discord import app_commands
