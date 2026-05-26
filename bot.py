@@ -2,63 +2,156 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 import asyncio
-import logging
 import os
 import json
 import threading
 import aiosqlite
 import secrets
-import traceback
 from datetime import datetime
 from dotenv import load_dotenv
-from flask import Flask, render_template, jsonify, request, redirect, url_for, session
+from flask import Flask, jsonify
 
 load_dotenv()
 
 print("🚀 بدء تشغيل البوت...")
 
 # ========== إنشاء المجلدات ==========
-for folder in ["data", "data/backups", "logs", "templates", "static"]:
+for folder in ["data", "data/backups"]:
     os.makedirs(folder, exist_ok=True)
 
-# ========== إعداد Flask ==========
+# ========== إعداد Flask (API فقط) ==========
 app = Flask(__name__)
-app.secret_key = secrets.token_hex(32)
 
-# ========== صفحات الويب ==========
 @app.route('/')
-def index():
-    return render_template('index.html')
+def home():
+    return """
+    <!DOCTYPE html>
+    <html lang="ar" dir="rtl">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>RTG Ultimate Bot</title>
+        <style>
+            body { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; font-family: Arial, sans-serif; color: white; text-align: center; padding: 50px; }
+            .card { background: rgba(255,255,255,0.1); border-radius: 20px; padding: 30px; margin: 20px auto; max-width: 600px; backdrop-filter: blur(10px); }
+            h1 { font-size: 3rem; }
+            .btn { background: #5865F2; color: white; padding: 12px 30px; border-radius: 30px; text-decoration: none; display: inline-block; margin: 10px; }
+            .stats { display: flex; justify-content: center; gap: 20px; margin-top: 30px; }
+            .stat { background: rgba(0,0,0,0.3); border-radius: 15px; padding: 15px; min-width: 120px; }
+            .stat-number { font-size: 2rem; font-weight: bold; }
+        </style>
+    </head>
+    <body>
+        <div class="card">
+            <h1>🎮 RTG Ultimate Bot</h1>
+            <p>أفضل بوت متكامل لإدارة سيرفرات ديسكورد</p>
+            <div class="stats">
+                <div class="stat">
+                    <div class="stat-number" id="guilds">...</div>
+                    <div>سيرفرات</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-number" id="users">...</div>
+                    <div>مستخدمين</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-number" id="uptime">...</div>
+                    <div>وقت التشغيل</div>
+                </div>
+            </div>
+            <div>
+                <a href="https://discord.com/oauth2/authorize?client_id=YOUR_CLIENT_ID&permissions=8&scope=bot%20applications.commands" class="btn">➕ إضافة البوت</a>
+                <a href="/dashboard" class="btn">📊 لوحة التحكم</a>
+            </div>
+        </div>
+        <script>
+            fetch('/api/stats').then(r=>r.json()).then(d=>{
+                document.getElementById('guilds').innerText = d.guilds;
+                document.getElementById('users').innerText = d.users;
+                document.getElementById('uptime').innerText = d.uptime;
+            });
+        </script>
+    </body>
+    </html>
+    """
 
 @app.route('/dashboard')
 def dashboard():
-    return render_template('dashboard.html')
+    return """
+    <!DOCTYPE html>
+    <html lang="ar" dir="rtl">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>لوحة التحكم - RTG Bot</title>
+        <style>
+            body { background: #f5f5f5; font-family: Arial, sans-serif; margin: 0; padding: 0; }
+            .sidebar { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); width: 250px; height: 100vh; position: fixed; color: white; padding: 20px; }
+            .sidebar a { color: white; text-decoration: none; display: block; padding: 12px; margin: 5px 0; border-radius: 10px; }
+            .sidebar a:hover { background: rgba(255,255,255,0.2); }
+            .content { margin-right: 250px; padding: 20px; }
+            .card { background: white; border-radius: 15px; padding: 20px; margin-bottom: 20px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+            .server-item { cursor: pointer; padding: 10px; border-bottom: 1px solid #eee; }
+            .server-item:hover { background: #f0f0f0; }
+            .stat-card { display: inline-block; background: white; border-radius: 15px; padding: 20px; margin: 10px; min-width: 150px; text-align: center; }
+            .stat-number { font-size: 2rem; font-weight: bold; color: #667eea; }
+        </style>
+    </head>
+    <body>
+        <div class="sidebar">
+            <h3>🤖 RTG Bot</h3>
+            <hr>
+            <a href="/dashboard">📊 لوحة التحكم</a>
+            <a href="/economy">💰 الاقتصاد</a>
+            <a href="/leveling">📈 المستويات</a>
+            <a href="/moderation">🛡️ الإدارة</a>
+            <a href="/">🏠 الرئيسية</a>
+        </div>
+        <div class="content">
+            <h2>📊 لوحة التحكم</h2>
+            <div id="stats-container"></div>
+            <div class="card">
+                <h3>🌐 السيرفرات</h3>
+                <div id="servers-list">جاري التحميل...</div>
+            </div>
+            <div class="card" id="server-details" style="display:none;">
+                <h3>📈 تفاصيل السيرفر</h3>
+                <div id="economy-leaderboard"></div>
+                <div id="level-leaderboard"></div>
+            </div>
+        </div>
+        <script>
+            fetch('/api/stats').then(r=>r.json()).then(d=>{
+                let html = `<div class="stat-card"><div class="stat-number">${d.guilds}</div><div>سيرفرات</div></div>
+                           <div class="stat-card"><div class="stat-number">${d.users}</div><div>مستخدمين</div></div>
+                           <div class="stat-card"><div class="stat-number">${d.uptime}</div><div>وقت التشغيل</div></div>`;
+                document.getElementById('stats-container').innerHTML = html;
+            });
+            fetch('/api/guilds').then(r=>r.json()).then(data=>{
+                let html = '';
+                data.forEach(g=>{ html += `<div class="server-item" onclick="loadServer(${g.id})">📡 ${g.name} (${g.members} عضو)</div>`; });
+                document.getElementById('servers-list').innerHTML = html;
+            });
+            function loadServer(id){
+                document.getElementById('server-details').style.display = 'block';
+                fetch(`/api/economy/${id}`).then(r=>r.json()).then(data=>{
+                    let html = '<h4>💰 قائمة الأغنياء</h4><ol>';
+                    data.forEach(u=>{ html += `<li>${u.name} - ${u.balance} عملة</li>`; });
+                    html += '</ol>';
+                    document.getElementById('economy-leaderboard').innerHTML = html;
+                });
+                fetch(`/api/leveling/${id}`).then(r=>r.json()).then(data=>{
+                    let html = '<h4>🏆 أعلى المستويات</h4><ol>';
+                    data.forEach(u=>{ html += `<li>${u.name} - المستوى ${u.level} (${u.xp} XP)</li>`; });
+                    html += '</ol>';
+                    document.getElementById('level-leaderboard').innerHTML = html;
+                });
+            }
+        </script>
+    </body>
+    </html>
+    """
 
-@app.route('/economy')
-def economy_page():
-    return render_template('economy.html')
-
-@app.route('/leveling')
-def leveling_page():
-    return render_template('leveling.html')
-
-@app.route('/moderation')
-def moderation_page():
-    return render_template('moderation.html')
-
-@app.route('/tickets')
-def tickets_page():
-    return render_template('tickets.html')
-
-@app.route('/giveaways')
-def giveaways_page():
-    return render_template('giveaways.html')
-
-@app.route('/settings')
-def settings_page():
-    return render_template('settings.html')
-
-# ========== API Routes ==========
 @app.route('/api/stats')
 def api_stats():
     return jsonify({
@@ -69,15 +162,7 @@ def api_stats():
 
 @app.route('/api/guilds')
 def api_guilds():
-    guilds_data = []
-    for guild in bot.guilds:
-        guilds_data.append({
-            'id': guild.id,
-            'name': guild.name,
-            'icon': str(guild.icon.url) if guild.icon else None,
-            'members': guild.member_count
-        })
-    return jsonify(guilds_data)
+    return jsonify([{'id': g.id, 'name': g.name, 'members': g.member_count} for g in bot.guilds])
 
 @app.route('/api/economy/<int:guild_id>')
 async def api_economy(guild_id):
@@ -102,6 +187,18 @@ async def api_leveling(guild_id):
         user = guild.get_member(user_id) if guild else None
         data.append({'name': user.name if user else str(user_id), 'level': level, 'xp': xp})
     return jsonify(data)
+
+@app.route('/economy')
+def economy_page():
+    return "<h2>💰 نظام الاقتصاد</h2><p>استخدم الأوامر التالية:</p><ul><li>/balance - عرض رصيدك</li><li>/daily - مكافأة يومية</li><li>/work - العمل لكسب المال</li><li>/pay - تحويل عملات</li><li>/shop - عرض المتجر</li></ul><a href='/dashboard'>🔙 العودة</a>"
+
+@app.route('/leveling')
+def leveling_page():
+    return "<h2>📈 نظام المستويات</h2><p>استخدم الأوامر التالية:</p><ul><li>/rank - عرض رتبتك</li><li>/rank @user - عرض رتبة عضو</li></ul><a href='/dashboard'>🔙 العودة</a>"
+
+@app.route('/moderation')
+def moderation_page():
+    return "<h2>🛡️ نظام الإدارة</h2><p>استخدم الأوامر التالية:</p><ul><li>/clear - مسح الرسائل</li><li>/ban - حظر عضو</li><li>/kick - طرد عضو</li><li>/build_server - بناء السيرفر</li><li>/nuke_server - حذف جميع القنوات والرتب</li></ul><a href='/dashboard'>🔙 العودة</a>"
 
 def run_web():
     app.run(host='0.0.0.0', port=8080)
@@ -149,13 +246,12 @@ class RTGUltimateBot(commands.Bot):
     async def on_ready(self):
         print(f"✅ {self.user} متصل!")
         print(f"📊 موجود في {len(self.guilds)} سيرفر")
-        await self.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name="RTG Community"))
+        await self.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name="RTG Community | /help"))
 
 bot = RTGUltimateBot()
 
 # ========== أمر حذف القنوات والرتب ==========
-@bot.tree.command(name="nuke_server", description="[OWNER] حذف جميع القنوات والرتب في السيرفر")
-@app_commands.default_permissions(administrator=True)
+@bot.tree.command(name="nuke_server", description="[OWNER] حذف جميع القنوات والرتب")
 async def nuke_server(interaction: discord.Interaction):
     if interaction.user.id != OWNER_ID:
         await interaction.response.send_message("❌ هذا الأمر للمطور فقط!", ephemeral=True)
@@ -164,20 +260,14 @@ async def nuke_server(interaction: discord.Interaction):
     await interaction.response.send_message("⚠️ جاري حذف جميع القنوات والرتب...", ephemeral=True)
     guild = interaction.guild
     
-    # حذف جميع القنوات
     for channel in guild.channels:
-        try:
-            await channel.delete()
-        except:
-            pass
+        try: await channel.delete()
+        except: pass
     
-    # حذف جميع الرتب (ما عدا @everyone)
     for role in guild.roles:
         if role.name != "@everyone":
-            try:
-                await role.delete()
-            except:
-                pass
+            try: await role.delete()
+            except: pass
     
     await interaction.followup.send("✅ تم حذف جميع القنوات والرتب!", ephemeral=True)
 
@@ -188,35 +278,16 @@ async def build_server(interaction: discord.Interaction):
     await interaction.response.defer()
     guild = interaction.guild
     try:
-        # إنشاء الرتب
-        roles = {}
         for name, color in [("👑 Owner", 0x000000), ("💎 VIP", 0xFFD700), ("🛡️ Admin", 0xFF0000), ("👥 Member", 0x00FF00)]:
-            r = await guild.create_role(name=name, color=discord.Color(color))
-            roles[name] = r
+            await guild.create_role(name=name, color=discord.Color(color))
         
-        # إنشاء الفئات
         cat_general = await guild.create_category("📁 GENERAL")
         cat_community = await guild.create_category("🎮 COMMUNITY")
         
-        # إنشاء القنوات
         await guild.create_text_channel("welcome", category=cat_general)
         await guild.create_text_channel("rules", category=cat_general)
-        await guild.create_text_channel("announcements", category=cat_general)
         await guild.create_text_channel("general-chat", category=cat_community)
-        await guild.create_text_channel("bot-commands", category=cat_community)
         await guild.create_voice_channel("voice-chat", category=cat_community)
-        
-        # لوحة التحقق
-        welcome_ch = discord.utils.get(guild.text_channels, name="welcome")
-        if welcome_ch:
-            class VerifyView(discord.ui.View):
-                @discord.ui.button(label="✅ تحقق", style=discord.ButtonStyle.success)
-                async def verify(self, ctx: discord.Interaction, btn: discord.ui.Button):
-                    member_role = discord.utils.get(guild.roles, name="👥 Member")
-                    if member_role:
-                        await ctx.user.add_roles(member_role)
-                        await ctx.response.send_message("✅ تم التحقق! مرحباً بك في السيرفر", ephemeral=True)
-            await welcome_ch.send("🔐 **التحقق من الدخول**\nاضغط على الزر أدناه للتحقق والوصول إلى السيرفر", view=VerifyView())
         
         await interaction.followup.send("✅ تم بناء السيرفر بنجاح!")
     except Exception as e:
@@ -265,7 +336,6 @@ async def shop(interaction: discord.Interaction):
     embed = discord.Embed(title="🛒 المتجر", color=discord.Color.purple())
     embed.add_field(name="👑 رتبة VIP", value="5000 عملة", inline=True)
     embed.add_field(name="🎨 لون مخصص", value="2000 عملة", inline=True)
-    embed.add_field(name="📢 إعلان", value="10000 عملة", inline=True)
     await interaction.response.send_message(embed=embed)
 
 # ========== أمر المستويات ==========
@@ -276,18 +346,7 @@ async def rank(interaction: discord.Interaction, member: discord.Member = None):
         async with db.execute("SELECT level, xp FROM leveling WHERE user_id = ? AND guild_id = ?", (target.id, interaction.guild_id)) as cur:
             res = await cur.fetchone()
     level, xp = res if res else (0, 0)
-    embed = discord.Embed(title=f"📊 رتبة {target.display_name}", color=discord.Color.blue())
-    embed.add_field(name="🏆 المستوى", value=level, inline=True)
-    embed.add_field(name="✨ الخبرة", value=xp, inline=True)
-    await interaction.response.send_message(embed=embed)
-
-# ========== أوامر الموسيقى ==========
-@bot.tree.command(name="play", description="تشغيل أغنية")
-async def play(interaction: discord.Interaction, query: str):
-    if not interaction.user.voice:
-        await interaction.response.send_message("❌ يجب أن تكون في قناة صوتية!")
-        return
-    await interaction.response.send_message(f"🎵 جاري تشغيل: {query}")
+    await interaction.response.send_message(f"📊 **{target.display_name}**\n🏆 المستوى: {level}\n✨ الخبرة: {xp}")
 
 # ========== أوامر الإدارة ==========
 @bot.tree.command(name="clear", description="مسح الرسائل")
@@ -311,69 +370,7 @@ async def kick(interaction: discord.Interaction, member: discord.Member, reason:
     await member.kick(reason=reason)
     await interaction.response.send_message(f"👢 تم طرد {member.mention}")
 
-# ========== لوحة التذاكر ==========
-@bot.tree.command(name="ticket_panel", description="[ADMIN] إنشاء لوحة التذاكر")
-@app_commands.default_permissions(administrator=True)
-async def ticket_panel(interaction: discord.Interaction):
-    category = discord.utils.get(interaction.guild.categories, name="🎫 TICKETS")
-    if not category:
-        category = await interaction.guild.create_category("🎫 TICKETS")
-    
-    class TicketView(discord.ui.View):
-        @discord.ui.button(label="🎫 فتح تذكرة", style=discord.ButtonStyle.primary)
-        async def ticket(self, ctx: discord.Interaction, btn: discord.ui.Button):
-            ch = await interaction.guild.create_text_channel(f"ticket-{ctx.user.name}", category=category)
-            await ch.set_permissions(ctx.user, read_messages=True, send_messages=True)
-            await ch.send(f"مرحباً {ctx.user.mention}! كيف يمكننا مساعدتك؟")
-            await ctx.response.send_message(f"✅ تم فتح تذكرة: {ch.mention}", ephemeral=True)
-    
-    embed = discord.Embed(title="🎫 مركز الدعم", description="اضغط للفتح تذكرة", color=discord.Color.blue())
-    await interaction.response.send_message(embed=embed, view=TicketView())
-
-@bot.tree.command(name="ticket_close", description="إغلاق التذكرة")
-async def ticket_close(interaction: discord.Interaction):
-    if not interaction.channel.name.startswith("ticket-"):
-        await interaction.response.send_message("❌ هذه ليست تذكرة!", ephemeral=True)
-        return
-    await interaction.response.send_message("🔒 جاري الإغلاق...")
-    await asyncio.sleep(2)
-    await interaction.channel.delete()
-
-# ========== السحوبات ==========
-@bot.tree.command(name="giveaway_create", description="[ADMIN] إنشاء سحوبات")
-@app_commands.default_permissions(administrator=True)
-async def giveaway_create(interaction: discord.Interaction, prize: str, duration: str, winners: int = 1):
-    try:
-        seconds = {"m": 60, "h": 3600, "d": 86400}.get(duration[-1], 60) * int(duration[:-1])
-    except:
-        await interaction.response.send_message("❌ صيغة غير صحيحة! استخدم: 30m, 1h, 2d", ephemeral=True)
-        return
-    
-    embed = discord.Embed(title="🎉 سحوبات!", description=f"**الجائزة:** {prize}\n**الفائزون:** {winners}\nينتهي بعد {duration}", color=discord.Color.purple())
-    
-    class GiveawayButton(discord.ui.View):
-        def __init__(self):
-            super().__init__(timeout=None)
-            self.entries = []
-        @discord.ui.button(label="🎉 شارك!", style=discord.ButtonStyle.success)
-        async def enter(self, ctx: discord.Interaction, btn: discord.ui.Button):
-            if ctx.user.id not in self.entries:
-                self.entries.append(ctx.user.id)
-                await ctx.response.send_message("✅ تم تسجيل مشاركتك!", ephemeral=True)
-    
-    view = GiveawayButton()
-    await interaction.response.send_message(embed=embed, view=view)
-    
-    await asyncio.sleep(seconds)
-    if view.entries:
-        import random
-        winners_list = random.sample(view.entries, min(winners, len(view.entries)))
-        winner_mentions = ", ".join([f"<@{w}>" for w in winners_list])
-        await interaction.channel.send(f"🎉 فاز بـ **{prize}**: {winner_mentions}")
-    else:
-        await interaction.channel.send(f"❌ لا مشاركين في سحوبات {prize}")
-
-# ========== حدث الرسائل للمستويات ==========
+# ========== حدث الرسائل ==========
 @bot.event
 async def on_message(message):
     if message.author.bot or not message.guild:
@@ -386,20 +383,6 @@ async def on_message(message):
         pass
     await bot.process_commands(message)
 
-# ========== حدث الترحيب ==========
-@bot.event
-async def on_member_join(member):
-    try:
-        async with aiosqlite.connect("data/rtg_bot.db") as db:
-            async with db.execute("SELECT channel_id FROM welcome_settings WHERE guild_id = ?", (member.guild.id,)) as cur:
-                res = await cur.fetchone()
-        if res:
-            channel = member.guild.get_channel(res[0])
-            if channel:
-                await channel.send(f"👋 مرحباً {member.mention} في {member.guild.name}!")
-    except:
-        pass
-
 # ========== أوامر ترفيهية ==========
 @bot.tree.command(name="hug", description="احتضن عضوًا")
 async def hug(interaction: discord.Interaction, member: discord.Member):
@@ -408,31 +391,15 @@ async def hug(interaction: discord.Interaction, member: discord.Member):
 @bot.tree.command(name="serverinfo", description="معلومات السيرفر")
 async def serverinfo(interaction: discord.Interaction):
     guild = interaction.guild
-    embed = discord.Embed(title=f"📊 {guild.name}", color=discord.Color.blue())
-    embed.add_field(name="👑 المالك", value=guild.owner.mention, inline=True)
-    embed.add_field(name="👥 الأعضاء", value=guild.member_count, inline=True)
-    embed.add_field(name="💬 القنوات", value=len(guild.channels), inline=True)
-    await interaction.response.send_message(embed=embed)
+    await interaction.response.send_message(f"📊 **{guild.name}**\n👑 المالك: {guild.owner.mention}\n👥 الأعضاء: {guild.member_count}\n💬 القنوات: {len(guild.channels)}")
 
-@bot.tree.command(name="avatar", description="عرض الصورة")
-async def avatar(interaction: discord.Interaction, member: discord.Member = None):
-    target = member or interaction.user
-    embed = discord.Embed(title=f"🖼️ {target.display_name}", color=discord.Color.blue())
-    embed.set_image(url=target.display_avatar.url)
-    await interaction.response.send_message(embed=embed)
-
-# ========== أمر المساعدة ==========
 @bot.tree.command(name="help", description="عرض المساعدة")
 async def help_cmd(interaction: discord.Interaction):
     embed = discord.Embed(title="🎮 RTG Ultimate Bot", color=discord.Color.purple())
     embed.add_field(name="💰 الاقتصاد", value="`/balance`, `/daily`, `/work`, `/pay`, `/shop`", inline=False)
     embed.add_field(name="📈 المستويات", value="`/rank`", inline=False)
-    embed.add_field(name="🎵 الموسيقى", value="`/play`", inline=False)
-    embed.add_field(name="🛡️ الإدارة", value="`/clear`, `/ban`, `/kick`", inline=False)
-    embed.add_field(name="🎫 التذاكر", value="`/ticket_panel`, `/ticket_close`", inline=False)
-    embed.add_field(name="🎁 السحوبات", value="`/giveaway_create`", inline=False)
-    embed.add_field(name="🏗️ البناء", value="`/build_server`", inline=False)
-    embed.add_field(name="💣 الحذف", value="`/nuke_server`", inline=False)
+    embed.add_field(name="🛡️ الإدارة", value="`/clear`, `/ban`, `/kick`, `/build_server`, `/nuke_server`", inline=False)
+    embed.add_field(name="🎭 الترفيه", value="`/hug`, `/serverinfo`", inline=False)
     embed.add_field(name="🌐 الويب", value="https://rtg-ultimate-bot.onrender.com", inline=False)
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
