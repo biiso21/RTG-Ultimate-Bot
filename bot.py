@@ -11,56 +11,103 @@ import secrets
 import traceback
 from datetime import datetime
 from dotenv import load_dotenv
+from flask import Flask, render_template, jsonify, request, redirect, url_for, session
 
-# تحميل المتغيرات
 load_dotenv()
 
 print("🚀 بدء تشغيل البوت...")
 
-# ========== إنشاء جميع المجلدات المطلوبة ==========
-try:
-    folders = ["data", "data/backups", "logs"]
-    for folder in folders:
-        if not os.path.exists(folder):
-            os.makedirs(folder)
-            print(f"✅ تم إنشاء مجلد: {folder}")
-        else:
-            print(f"✅ مجلد موجود: {folder}")
-except Exception as e:
-    print(f"⚠️ تنبيه: {e}")
+# ========== إنشاء المجلدات ==========
+for folder in ["data", "data/backups", "logs", "templates", "static"]:
+    os.makedirs(folder, exist_ok=True)
 
-# ========== إعداد التسجيل (بعد إنشاء المجلدات) ==========
-try:
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        handlers=[logging.StreamHandler()]  # فقط الطباعة على الشاشة، بدون ملف
-    )
-except Exception as e:
-    print(f"⚠️ تنبيه في التسجيل: {e}")
+# ========== إعداد Flask ==========
+app = Flask(__name__)
+app.secret_key = secrets.token_hex(32)
 
-logger = logging.getLogger(__name__)
+# ========== صفحات الويب ==========
+@app.route('/')
+def index():
+    return render_template('index.html')
 
-# ========== خادم ويب ==========
-try:
-    from flask import Flask
-    web_app = Flask(__name__)
+@app.route('/dashboard')
+def dashboard():
+    return render_template('dashboard.html')
 
-    @web_app.route('/')
-    def home():
-        return "✅ RTG Ultimate Bot is running!"
+@app.route('/economy')
+def economy_page():
+    return render_template('economy.html')
 
-    @web_app.route('/ping')
-    def ping():
-        return "pong", 200
+@app.route('/leveling')
+def leveling_page():
+    return render_template('leveling.html')
 
-    def run_web():
-        web_app.run(host='0.0.0.0', port=8080)
+@app.route('/moderation')
+def moderation_page():
+    return render_template('moderation.html')
 
-    threading.Thread(target=run_web, daemon=True).start()
-    print("✅ خادم الويب يعمل على المنفذ 8080")
-except Exception as e:
-    print(f"⚠️ تنبيه في تشغيل خادم الويب: {e}")
+@app.route('/tickets')
+def tickets_page():
+    return render_template('tickets.html')
+
+@app.route('/giveaways')
+def giveaways_page():
+    return render_template('giveaways.html')
+
+@app.route('/settings')
+def settings_page():
+    return render_template('settings.html')
+
+# ========== API Routes ==========
+@app.route('/api/stats')
+def api_stats():
+    return jsonify({
+        'guilds': len(bot.guilds),
+        'users': sum(g.member_count for g in bot.guilds),
+        'uptime': str(datetime.now() - bot.start_time).split('.')[0]
+    })
+
+@app.route('/api/guilds')
+def api_guilds():
+    guilds_data = []
+    for guild in bot.guilds:
+        guilds_data.append({
+            'id': guild.id,
+            'name': guild.name,
+            'icon': str(guild.icon.url) if guild.icon else None,
+            'members': guild.member_count
+        })
+    return jsonify(guilds_data)
+
+@app.route('/api/economy/<int:guild_id>')
+async def api_economy(guild_id):
+    async with aiosqlite.connect("data/rtg_bot.db") as db:
+        async with db.execute("SELECT user_id, balance FROM economy WHERE guild_id = ? ORDER BY balance DESC LIMIT 10", (guild_id,)) as cur:
+            rows = await cur.fetchall()
+    data = []
+    for user_id, balance in rows:
+        guild = bot.get_guild(guild_id)
+        user = guild.get_member(user_id) if guild else None
+        data.append({'name': user.name if user else str(user_id), 'balance': balance})
+    return jsonify(data)
+
+@app.route('/api/leveling/<int:guild_id>')
+async def api_leveling(guild_id):
+    async with aiosqlite.connect("data/rtg_bot.db") as db:
+        async with db.execute("SELECT user_id, level, xp FROM leveling WHERE guild_id = ? ORDER BY level DESC LIMIT 10", (guild_id,)) as cur:
+            rows = await cur.fetchall()
+    data = []
+    for user_id, level, xp in rows:
+        guild = bot.get_guild(guild_id)
+        user = guild.get_member(user_id) if guild else None
+        data.append({'name': user.name if user else str(user_id), 'level': level, 'xp': xp})
+    return jsonify(data)
+
+def run_web():
+    app.run(host='0.0.0.0', port=8080)
+
+threading.Thread(target=run_web, daemon=True).start()
+print("✅ خادم الويب يعمل على المنفذ 8080")
 
 # ========== إعدادات البوت ==========
 intents = discord.Intents.all()
@@ -71,79 +118,20 @@ intents.voice_states = True
 TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 OWNER_ID = int(os.getenv("OWNER_ID", "1276968112071249958"))
 OWNER_GUILD_ID = int(os.getenv("OWNER_GUILD_ID", "1361756331404693665"))
-PROTECTION_MODE = int(os.getenv("PROTECTION_MODE", "0"))
 
 print(f"✅ TOKEN موجود: {bool(TOKEN)}")
-print(f"✅ OWNER_ID: {OWNER_ID}")
-print(f"✅ OWNER_GUILD_ID: {OWNER_GUILD_ID}")
 
 # ========== تهيئة قاعدة البيانات ==========
 async def init_db():
-    try:
-        async with aiosqlite.connect("data/rtg_bot.db") as db:
-            # جدول المستويات
-            await db.execute('''CREATE TABLE IF NOT EXISTS leveling (user_id INTEGER, guild_id INTEGER, xp INTEGER DEFAULT 0, level INTEGER DEFAULT 0, total_messages INTEGER DEFAULT 0, voice_minutes INTEGER DEFAULT 0, last_message_time TEXT, PRIMARY KEY (user_id, guild_id))''')
-            # جدول الاقتصاد
-            await db.execute('''CREATE TABLE IF NOT EXISTS economy (user_id INTEGER, guild_id INTEGER, balance INTEGER DEFAULT 0, daily_streak INTEGER DEFAULT 0, last_daily TEXT, job TEXT DEFAULT '🍔 Burger Flipper', job_level INTEGER DEFAULT 1, PRIMARY KEY (user_id, guild_id))''')
-            # جدول السحوبات
-            await db.execute('''CREATE TABLE IF NOT EXISTS giveaways (message_id INTEGER PRIMARY KEY, guild_id INTEGER, channel_id INTEGER, prize TEXT, winners_count INTEGER, end_time TEXT, entries TEXT, ended INTEGER DEFAULT 0)''')
-            # جدول التذاكر
-            await db.execute('''CREATE TABLE IF NOT EXISTS tickets (ticket_id TEXT PRIMARY KEY, guild_id INTEGER, user_id INTEGER, channel_id INTEGER, status TEXT, created_at TEXT, transcript TEXT)''')
-            # جدول المتجر
-            await db.execute('''CREATE TABLE IF NOT EXISTS shop (item_id INTEGER PRIMARY KEY AUTOINCREMENT, guild_id INTEGER, item_name TEXT, role_id INTEGER, price INTEGER, description TEXT)''')
-            # جدول التحذيرات
-            await db.execute('''CREATE TABLE IF NOT EXISTS warnings (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, guild_id INTEGER, moderator_id INTEGER, reason TEXT, timestamp TEXT)''')
-            # جدول إعدادات المستويات
-            await db.execute('''CREATE TABLE IF NOT EXISTS level_settings (guild_id INTEGER PRIMARY KEY, announce_channel_id INTEGER, announce_enabled INTEGER DEFAULT 1)''')
-            # جدول إعدادات الترحيب
-            await db.execute('''CREATE TABLE IF NOT EXISTS welcome_settings (guild_id INTEGER PRIMARY KEY, channel_id INTEGER, welcome_enabled INTEGER DEFAULT 1, farewell_enabled INTEGER DEFAULT 1)''')
-            # جدول إعدادات الحماية
-            await db.execute('''CREATE TABLE IF NOT EXISTS antinuke_settings (guild_id INTEGER PRIMARY KEY, enabled INTEGER DEFAULT 0, log_channel_id INTEGER)''')
-            # جدول النسخ الاحتياطية
-            await db.execute('''CREATE TABLE IF NOT EXISTS server_backups (id INTEGER PRIMARY KEY AUTOINCREMENT, guild_id INTEGER, backup_data TEXT, created_at TEXT)''')
-            await db.commit()
-        print("✅ قاعدة البيانات جاهزة")
-    except Exception as e:
-        print(f"❌ خطأ في قاعدة البيانات: {e}")
-        traceback.print_exc()
-
-# ========== نظام الترخيص ==========
-class SimpleLicense:
-    def __init__(self):
-        self.license_file = "license_keys.json"
-        self.licenses = self.load_licenses()
-    def load_licenses(self):
-        if os.path.exists(self.license_file):
-            try:
-                with open(self.license_file, 'r') as f:
-                    return json.load(f)
-            except:
-                return {"licenses": {}, "owner_guild": OWNER_GUILD_ID}
-        return {"licenses": {}, "owner_guild": OWNER_GUILD_ID}
-    def save_licenses(self):
-        with open(self.license_file, 'w') as f:
-            json.dump(self.licenses, f, indent=4)
-    def generate_key(self, guild_id: int, guild_name: str):
-        key = secrets.token_hex(16).upper()
-        self.licenses["licenses"][key] = {"guild_id": guild_id, "guild_name": guild_name, "activated": False, "expires": (datetime.now().timestamp() + 365 * 24 * 3600)}
-        self.save_licenses()
-        return key
-    def activate(self, key: str, guild_id: int):
-        if key not in self.licenses["licenses"]: return False
-        lic = self.licenses["licenses"][key]
-        if lic["guild_id"] != guild_id: return False
-        if lic["expires"] < datetime.now().timestamp(): return False
-        lic["activated"] = True
-        self.save_licenses()
-        return True
-    def check(self, guild_id: int):
-        if guild_id == OWNER_GUILD_ID: return True
-        for key, data in self.licenses["licenses"].items():
-            if data["guild_id"] == guild_id and data["activated"] and data["expires"] >= datetime.now().timestamp():
-                return True
-        return False
-
-license_manager = SimpleLicense()
+    async with aiosqlite.connect("data/rtg_bot.db") as db:
+        await db.execute('''CREATE TABLE IF NOT EXISTS leveling (user_id INTEGER, guild_id INTEGER, xp INTEGER DEFAULT 0, level INTEGER DEFAULT 0, total_messages INTEGER DEFAULT 0, PRIMARY KEY (user_id, guild_id))''')
+        await db.execute('''CREATE TABLE IF NOT EXISTS economy (user_id INTEGER, guild_id INTEGER, balance INTEGER DEFAULT 0, daily_streak INTEGER DEFAULT 0, last_daily TEXT, PRIMARY KEY (user_id, guild_id))''')
+        await db.execute('''CREATE TABLE IF NOT EXISTS giveaways (message_id INTEGER PRIMARY KEY, guild_id INTEGER, channel_id INTEGER, prize TEXT, winners_count INTEGER, end_time TEXT, entries TEXT, ended INTEGER DEFAULT 0)''')
+        await db.execute('''CREATE TABLE IF NOT EXISTS tickets (ticket_id TEXT PRIMARY KEY, guild_id INTEGER, user_id INTEGER, channel_id INTEGER, status TEXT, created_at TEXT)''')
+        await db.execute('''CREATE TABLE IF NOT EXISTS warnings (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, guild_id INTEGER, moderator_id INTEGER, reason TEXT, timestamp TEXT)''')
+        await db.execute('''CREATE TABLE IF NOT EXISTS welcome_settings (guild_id INTEGER PRIMARY KEY, channel_id INTEGER, welcome_enabled INTEGER DEFAULT 1)''')
+        await db.commit()
+    print("✅ قاعدة البيانات جاهزة")
 
 # ========== البوت الرئيسي ==========
 class RTGUltimateBot(commands.Bot):
@@ -156,27 +144,42 @@ class RTGUltimateBot(commands.Bot):
         print("🔄 جاري تحميل البوت...")
         await init_db()
         await self.tree.sync()
-        print(f"✅ تم مزامنة الأوامر")
+        print("✅ تم مزامنة الأوامر")
     
     async def on_ready(self):
         print(f"✅ {self.user} متصل!")
         print(f"📊 موجود في {len(self.guilds)} سيرفر")
-        await self.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name="RTG Community | /help"))
+        await self.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name="RTG Community"))
 
 bot = RTGUltimateBot()
 
-# ========== أوامر الترخيص ==========
-@bot.tree.command(name="activate", description="تفعيل البوت")
-async def activate_cmd(interaction: discord.Interaction, key: str):
-    if license_manager.activate(key, interaction.guild_id):
-        await interaction.response.send_message("✅ تم تفعيل البوت بنجاح!")
-    else:
-        await interaction.response.send_message("❌ مفتاح غير صالح!", ephemeral=True)
-
-@bot.tree.command(name="license_info", description="معلومات الترخيص")
-async def license_info(interaction: discord.Interaction):
-    status = "✅ مفعل" if license_manager.check(interaction.guild_id) else "❌ غير مفعل"
-    await interaction.response.send_message(f"🔑 **حالة الترخيص:** {status}", ephemeral=True)
+# ========== أمر حذف القنوات والرتب ==========
+@bot.tree.command(name="nuke_server", description="[OWNER] حذف جميع القنوات والرتب في السيرفر")
+@app_commands.default_permissions(administrator=True)
+async def nuke_server(interaction: discord.Interaction):
+    if interaction.user.id != OWNER_ID:
+        await interaction.response.send_message("❌ هذا الأمر للمطور فقط!", ephemeral=True)
+        return
+    
+    await interaction.response.send_message("⚠️ جاري حذف جميع القنوات والرتب...", ephemeral=True)
+    guild = interaction.guild
+    
+    # حذف جميع القنوات
+    for channel in guild.channels:
+        try:
+            await channel.delete()
+        except:
+            pass
+    
+    # حذف جميع الرتب (ما عدا @everyone)
+    for role in guild.roles:
+        if role.name != "@everyone":
+            try:
+                await role.delete()
+            except:
+                pass
+    
+    await interaction.followup.send("✅ تم حذف جميع القنوات والرتب!", ephemeral=True)
 
 # ========== أمر بناء السيرفر ==========
 @bot.tree.command(name="build_server", description="[ADMIN] بناء السيرفر تلقائياً")
@@ -190,14 +193,19 @@ async def build_server(interaction: discord.Interaction):
         for name, color in [("👑 Owner", 0x000000), ("💎 VIP", 0xFFD700), ("🛡️ Admin", 0xFF0000), ("👥 Member", 0x00FF00)]:
             r = await guild.create_role(name=name, color=discord.Color(color))
             roles[name] = r
+        
         # إنشاء الفئات
         cat_general = await guild.create_category("📁 GENERAL")
         cat_community = await guild.create_category("🎮 COMMUNITY")
+        
         # إنشاء القنوات
         await guild.create_text_channel("welcome", category=cat_general)
         await guild.create_text_channel("rules", category=cat_general)
+        await guild.create_text_channel("announcements", category=cat_general)
         await guild.create_text_channel("general-chat", category=cat_community)
+        await guild.create_text_channel("bot-commands", category=cat_community)
         await guild.create_voice_channel("voice-chat", category=cat_community)
+        
         # لوحة التحقق
         welcome_ch = discord.utils.get(guild.text_channels, name="welcome")
         if welcome_ch:
@@ -207,22 +215,12 @@ async def build_server(interaction: discord.Interaction):
                     member_role = discord.utils.get(guild.roles, name="👥 Member")
                     if member_role:
                         await ctx.user.add_roles(member_role)
-                        await ctx.response.send_message("✅ تم التحقق!", ephemeral=True)
-            await welcome_ch.send("🔐 اضغط للتحقق", view=VerifyView())
+                        await ctx.response.send_message("✅ تم التحقق! مرحباً بك في السيرفر", ephemeral=True)
+            await welcome_ch.send("🔐 **التحقق من الدخول**\nاضغط على الزر أدناه للتحقق والوصول إلى السيرفر", view=VerifyView())
+        
         await interaction.followup.send("✅ تم بناء السيرفر بنجاح!")
     except Exception as e:
         await interaction.followup.send(f"❌ خطأ: {e}")
-
-# ========== لوحة التحكم ==========
-@bot.tree.command(name="dashboard", description="لوحة التحكم الرئيسية")
-async def dashboard(interaction: discord.Interaction):
-    embed = discord.Embed(title="🎮 لوحة تحكم RTG Bot", color=discord.Color.purple())
-    embed.add_field(name="💰 الاقتصاد", value="`/balance`, `/work`, `/shop`", inline=True)
-    embed.add_field(name="📈 المستويات", value="`/rank`", inline=True)
-    embed.add_field(name="🛡️ الإدارة", value="`/clear`, `/ban`, `/kick`", inline=True)
-    embed.add_field(name="🎫 التذاكر", value="`/ticket_panel`, `/ticket_close`", inline=True)
-    embed.add_field(name="🏗️ البناء", value="`/build_server`", inline=True)
-    await interaction.response.send_message(embed=embed, ephemeral=True)
 
 # ========== أوامر الاقتصاد ==========
 @bot.tree.command(name="balance", description="عرض رصيدك")
@@ -267,6 +265,7 @@ async def shop(interaction: discord.Interaction):
     embed = discord.Embed(title="🛒 المتجر", color=discord.Color.purple())
     embed.add_field(name="👑 رتبة VIP", value="5000 عملة", inline=True)
     embed.add_field(name="🎨 لون مخصص", value="2000 عملة", inline=True)
+    embed.add_field(name="📢 إعلان", value="10000 عملة", inline=True)
     await interaction.response.send_message(embed=embed)
 
 # ========== أمر المستويات ==========
@@ -289,10 +288,6 @@ async def play(interaction: discord.Interaction, query: str):
         await interaction.response.send_message("❌ يجب أن تكون في قناة صوتية!")
         return
     await interaction.response.send_message(f"🎵 جاري تشغيل: {query}")
-
-@bot.tree.command(name="skip", description="تخطي الأغنية")
-async def skip(interaction: discord.Interaction):
-    await interaction.response.send_message("⏭️ تم التخطي")
 
 # ========== أوامر الإدارة ==========
 @bot.tree.command(name="clear", description="مسح الرسائل")
@@ -405,20 +400,6 @@ async def on_member_join(member):
     except:
         pass
 
-# ========== حدث المغادرة ==========
-@bot.event
-async def on_member_remove(member):
-    try:
-        async with aiosqlite.connect("data/rtg_bot.db") as db:
-            async with db.execute("SELECT channel_id FROM welcome_settings WHERE guild_id = ?", (member.guild.id,)) as cur:
-                res = await cur.fetchone()
-        if res:
-            channel = member.guild.get_channel(res[0])
-            if channel:
-                await channel.send(f"😢 وداعاً {member.name}!")
-    except:
-        pass
-
 # ========== أوامر ترفيهية ==========
 @bot.tree.command(name="hug", description="احتضن عضوًا")
 async def hug(interaction: discord.Interaction, member: discord.Member):
@@ -446,30 +427,18 @@ async def help_cmd(interaction: discord.Interaction):
     embed = discord.Embed(title="🎮 RTG Ultimate Bot", color=discord.Color.purple())
     embed.add_field(name="💰 الاقتصاد", value="`/balance`, `/daily`, `/work`, `/pay`, `/shop`", inline=False)
     embed.add_field(name="📈 المستويات", value="`/rank`", inline=False)
-    embed.add_field(name="🎵 الموسيقى", value="`/play`, `/skip`", inline=False)
+    embed.add_field(name="🎵 الموسيقى", value="`/play`", inline=False)
     embed.add_field(name="🛡️ الإدارة", value="`/clear`, `/ban`, `/kick`", inline=False)
     embed.add_field(name="🎫 التذاكر", value="`/ticket_panel`, `/ticket_close`", inline=False)
     embed.add_field(name="🎁 السحوبات", value="`/giveaway_create`", inline=False)
-    embed.add_field(name="🏗️ بناء السيرفر", value="`/build_server`", inline=False)
-    embed.add_field(name="🎭 الترفيه", value="`/hug`, `/serverinfo`, `/avatar`", inline=False)
-    embed.set_footer(text=f"البوت على {len(bot.guilds)} سيرفر")
+    embed.add_field(name="🏗️ البناء", value="`/build_server`", inline=False)
+    embed.add_field(name="💣 الحذف", value="`/nuke_server`", inline=False)
+    embed.add_field(name="🌐 الويب", value="https://rtg-ultimate-bot.onrender.com", inline=False)
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
 # ========== تشغيل البوت ==========
 if __name__ == "__main__":
-    print("=" * 50)
-    print("🚀 تشغيل RTG Ultimate Bot...")
-    print("=" * 50)
-    
     if not TOKEN:
         print("❌ خطأ: لم يتم إدخال توكن البوت!")
-        print("الرجاء إضافة DISCORD_BOT_TOKEN في متغيرات البيئة")
-    elif TOKEN == "ضع_توكن_البوت_هنا":
-        print("❌ خطأ: لم يتم تغيير التوكن من القيمة الافتراضية!")
     else:
-        print(f"✅ تم العثور على التوكن (الطول: {len(TOKEN)} حرف)")
-        try:
-            bot.run(TOKEN)
-        except Exception as e:
-            print(f"❌ خطأ في تشغيل البوت: {e}")
-            traceback.print_exc()
+        bot.run(TOKEN)
