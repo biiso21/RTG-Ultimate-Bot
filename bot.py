@@ -15,19 +15,31 @@ from dotenv import load_dotenv
 # تحميل المتغيرات
 load_dotenv()
 
-# إظهار أخطاء أكثر
 print("🚀 بدء تشغيل البوت...")
-print(f"📁 الملف الحالي: {__file__}")
-print(f"📂 المجلد الحالي: {os.getcwd()}")
 
-# ========== إنشاء المجلدات ==========
+# ========== إنشاء جميع المجلدات المطلوبة ==========
 try:
-    for folder in ["data", "data/backups", "logs"]:
-        os.makedirs(folder, exist_ok=True)
-        print(f"✅ تم إنشاء/التحقق من مجلد: {folder}")
+    folders = ["data", "data/backups", "logs"]
+    for folder in folders:
+        if not os.path.exists(folder):
+            os.makedirs(folder)
+            print(f"✅ تم إنشاء مجلد: {folder}")
+        else:
+            print(f"✅ مجلد موجود: {folder}")
 except Exception as e:
-    print(f"❌ خطأ في إنشاء المجلدات: {e}")
-    traceback.print_exc()
+    print(f"⚠️ تنبيه: {e}")
+
+# ========== إعداد التسجيل (بعد إنشاء المجلدات) ==========
+try:
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        handlers=[logging.StreamHandler()]  # فقط الطباعة على الشاشة، بدون ملف
+    )
+except Exception as e:
+    print(f"⚠️ تنبيه في التسجيل: {e}")
+
+logger = logging.getLogger(__name__)
 
 # ========== خادم ويب ==========
 try:
@@ -48,17 +60,9 @@ try:
     threading.Thread(target=run_web, daemon=True).start()
     print("✅ خادم الويب يعمل على المنفذ 8080")
 except Exception as e:
-    print(f"❌ خطأ في تشغيل خادم الويب: {e}")
-    traceback.print_exc()
+    print(f"⚠️ تنبيه في تشغيل خادم الويب: {e}")
 
-# ========== إعداد التسجيل ==========
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[logging.FileHandler('logs/bot.log'), logging.StreamHandler()]
-)
-logger = logging.getLogger(__name__)
-
+# ========== إعدادات البوت ==========
 intents = discord.Intents.all()
 intents.message_content = True
 intents.members = True
@@ -157,7 +161,7 @@ class RTGUltimateBot(commands.Bot):
     async def on_ready(self):
         print(f"✅ {self.user} متصل!")
         print(f"📊 موجود في {len(self.guilds)} سيرفر")
-        await self.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name="RTG Community"))
+        await self.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name="RTG Community | /help"))
 
 bot = RTGUltimateBot()
 
@@ -181,16 +185,20 @@ async def build_server(interaction: discord.Interaction):
     await interaction.response.defer()
     guild = interaction.guild
     try:
+        # إنشاء الرتب
         roles = {}
         for name, color in [("👑 Owner", 0x000000), ("💎 VIP", 0xFFD700), ("🛡️ Admin", 0xFF0000), ("👥 Member", 0x00FF00)]:
             r = await guild.create_role(name=name, color=discord.Color(color))
             roles[name] = r
+        # إنشاء الفئات
         cat_general = await guild.create_category("📁 GENERAL")
         cat_community = await guild.create_category("🎮 COMMUNITY")
+        # إنشاء القنوات
         await guild.create_text_channel("welcome", category=cat_general)
         await guild.create_text_channel("rules", category=cat_general)
         await guild.create_text_channel("general-chat", category=cat_community)
         await guild.create_voice_channel("voice-chat", category=cat_community)
+        # لوحة التحقق
         welcome_ch = discord.utils.get(guild.text_channels, name="welcome")
         if welcome_ch:
             class VerifyView(discord.ui.View):
@@ -340,7 +348,11 @@ async def ticket_close(interaction: discord.Interaction):
 @bot.tree.command(name="giveaway_create", description="[ADMIN] إنشاء سحوبات")
 @app_commands.default_permissions(administrator=True)
 async def giveaway_create(interaction: discord.Interaction, prize: str, duration: str, winners: int = 1):
-    seconds = {"m": 60, "h": 3600, "d": 86400}.get(duration[-1], 60) * int(duration[:-1])
+    try:
+        seconds = {"m": 60, "h": 3600, "d": 86400}.get(duration[-1], 60) * int(duration[:-1])
+    except:
+        await interaction.response.send_message("❌ صيغة غير صحيحة! استخدم: 30m, 1h, 2d", ephemeral=True)
+        return
     
     embed = discord.Embed(title="🎉 سحوبات!", description=f"**الجائزة:** {prize}\n**الفائزون:** {winners}\nينتهي بعد {duration}", color=discord.Color.purple())
     
@@ -371,32 +383,41 @@ async def giveaway_create(interaction: discord.Interaction, prize: str, duration
 async def on_message(message):
     if message.author.bot or not message.guild:
         return
-    async with aiosqlite.connect("data/rtg_bot.db") as db:
-        await db.execute('''INSERT INTO leveling (user_id, guild_id, xp, level) VALUES (?, ?, 15, 0) ON CONFLICT(user_id, guild_id) DO UPDATE SET xp = xp + 15''', (message.author.id, message.guild.id))
-        await db.commit()
+    try:
+        async with aiosqlite.connect("data/rtg_bot.db") as db:
+            await db.execute('''INSERT INTO leveling (user_id, guild_id, xp, level) VALUES (?, ?, 15, 0) ON CONFLICT(user_id, guild_id) DO UPDATE SET xp = xp + 15''', (message.author.id, message.guild.id))
+            await db.commit()
+    except:
+        pass
     await bot.process_commands(message)
 
 # ========== حدث الترحيب ==========
 @bot.event
 async def on_member_join(member):
-    async with aiosqlite.connect("data/rtg_bot.db") as db:
-        async with db.execute("SELECT channel_id FROM welcome_settings WHERE guild_id = ?", (member.guild.id,)) as cur:
-            res = await cur.fetchone()
-    if res:
-        channel = member.guild.get_channel(res[0])
-        if channel:
-            await channel.send(f"👋 مرحباً {member.mention} في {member.guild.name}!")
+    try:
+        async with aiosqlite.connect("data/rtg_bot.db") as db:
+            async with db.execute("SELECT channel_id FROM welcome_settings WHERE guild_id = ?", (member.guild.id,)) as cur:
+                res = await cur.fetchone()
+        if res:
+            channel = member.guild.get_channel(res[0])
+            if channel:
+                await channel.send(f"👋 مرحباً {member.mention} في {member.guild.name}!")
+    except:
+        pass
 
 # ========== حدث المغادرة ==========
 @bot.event
 async def on_member_remove(member):
-    async with aiosqlite.connect("data/rtg_bot.db") as db:
-        async with db.execute("SELECT channel_id FROM welcome_settings WHERE guild_id = ?", (member.guild.id,)) as cur:
-            res = await cur.fetchone()
-    if res:
-        channel = member.guild.get_channel(res[0])
-        if channel:
-            await channel.send(f"😢 وداعاً {member.name}!")
+    try:
+        async with aiosqlite.connect("data/rtg_bot.db") as db:
+            async with db.execute("SELECT channel_id FROM welcome_settings WHERE guild_id = ?", (member.guild.id,)) as cur:
+                res = await cur.fetchone()
+        if res:
+            channel = member.guild.get_channel(res[0])
+            if channel:
+                await channel.send(f"😢 وداعاً {member.name}!")
+    except:
+        pass
 
 # ========== أوامر ترفيهية ==========
 @bot.tree.command(name="hug", description="احتضن عضوًا")
@@ -430,6 +451,7 @@ async def help_cmd(interaction: discord.Interaction):
     embed.add_field(name="🎫 التذاكر", value="`/ticket_panel`, `/ticket_close`", inline=False)
     embed.add_field(name="🎁 السحوبات", value="`/giveaway_create`", inline=False)
     embed.add_field(name="🏗️ بناء السيرفر", value="`/build_server`", inline=False)
+    embed.add_field(name="🎭 الترفيه", value="`/hug`, `/serverinfo`, `/avatar`", inline=False)
     embed.set_footer(text=f"البوت على {len(bot.guilds)} سيرفر")
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
