@@ -1,127 +1,161 @@
-{% extends "base.html" %}
-
-{% block title %}لوحة التحكم - RTG Bot{% endblock %}
-
-{% block content %}
-<div class="row">
-    <div class="col-md-3">
-        <div class="card shadow mb-4">
-            <div class="card-header bg-primary text-white">
-                <h5><i class="fas fa-server"></i> السيرفرات</h5>
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لوحة التحكم - RTG Bot</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { background: #f5f5f5; font-family: 'Cairo', sans-serif; }
+        .sidebar { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; color: white; }
+        .sidebar a { color: white; text-decoration: none; display: block; padding: 12px 20px; transition: 0.3s; }
+        .sidebar a:hover { background: rgba(255,255,255,0.2); border-radius: 10px; }
+        .sidebar i { margin-left: 10px; }
+        .content { padding: 20px; }
+        .card { border-radius: 15px; border: none; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        .server-item { cursor: pointer; padding: 10px; border-bottom: 1px solid #eee; transition: 0.3s; }
+        .server-item:hover { background: #f0f0f0; transform: translateX(5px); }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-md-3 col-lg-2 p-0 sidebar">
+                <div class="p-3">
+                    <h4><i class="fas fa-robot"></i> RTG Bot</h4>
+                    <hr class="bg-white">
+                </div>
+                <a href="/dashboard"><i class="fas fa-tachometer-alt"></i> لوحة التحكم</a>
+                <a href="/economy"><i class="fas fa-coins"></i> الاقتصاد</a>
+                <a href="/leveling"><i class="fas fa-chart-line"></i> المستويات</a>
+                <a href="/moderation"><i class="fas fa-shield-alt"></i> الإدارة</a>
+                <a href="/tickets"><i class="fas fa-ticket-alt"></i> التذاكر</a>
+                <a href="/giveaways"><i class="fas fa-gift"></i> السحوبات</a>
+                <a href="/settings"><i class="fas fa-cog"></i> الإعدادات</a>
+                <hr class="bg-white">
+                <a href="/"><i class="fas fa-home"></i> الرئيسية</a>
             </div>
-            <div class="card-body p-0">
-                <div class="list-group list-group-flush" id="servers-list">
-                    <div class="text-center p-3">جاري التحميل...</div>
+
+            <div class="col-md-9 col-lg-10 content">
+                <h2 class="mb-4"><i class="fas fa-tachometer-alt"></i> لوحة التحكم</h2>
+                
+                <div class="row mb-4" id="main-stats">
+                    <div class="col-md-3">
+                        <div class="card text-center p-3">
+                            <h3 id="guilds-count">...</h3>
+                            <p>سيرفرات</p>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card text-center p-3">
+                            <h3 id="users-count">...</h3>
+                            <p>مستخدمين</p>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card text-center p-3">
+                            <h3 id="uptime">...</h3>
+                            <p>وقت التشغيل</p>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card text-center p-3">
+                            <h3>🎉</h3>
+                            <p>RTG Community</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <h5><i class="fas fa-server"></i> السيرفرات المتاحة</h5>
+                    </div>
+                    <div class="card-body" id="servers-list">
+                        <div class="text-center">جاري التحميل...</div>
+                    </div>
+                </div>
+
+                <div class="row mt-4" id="server-details" style="display: none;">
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header bg-success text-white">
+                                <h5><i class="fas fa-coins"></i> قائمة الأغنياء</h5>
+                            </div>
+                            <div class="card-body" id="economy-leaderboard">...</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header bg-info text-white">
+                                <h5><i class="fas fa-trophy"></i> أعلى المستويات</h5>
+                            </div>
+                            <div class="card-body" id="level-leaderboard">...</div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
-    
-    <div class="col-md-9">
-        <div class="card shadow">
-            <div class="card-header bg-primary text-white">
-                <h5><i class="fas fa-chart-line"></i> إحصائيات السيرفر</h5>
-            </div>
-            <div class="card-body" id="stats-content">
-                <div class="text-center">اختر سيرفر من القائمة</div>
-            </div>
-        </div>
-        
-        <div class="row mt-4">
-            <div class="col-md-6">
-                <div class="card shadow">
-                    <div class="card-header bg-warning text-dark">
-                        <h5><i class="fas fa-coins"></i> قائمة الأغنياء</h5>
-                    </div>
-                    <div class="card-body" id="economy-leaderboard">
-                        <div class="text-center">اختر سيرفر أولاً</div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-6">
-                <div class="card shadow">
-                    <div class="card-header bg-success text-white">
-                        <h5><i class="fas fa-trophy"></i> أعلى المستويات</h5>
-                    </div>
-                    <div class="card-body" id="level-leaderboard">
-                        <div class="text-center">اختر سيرفر أولاً</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-{% endblock %}
 
-{% block extra_js %}
-<script>
-$(document).ready(function() {
-    // جلب قائمة السيرفرات
-    $.get('/api/guilds', function(data) {
-        let html = '';
-        data.forEach(guild => {
-            html += `<a href="#" class="list-group-item list-group-item-action server-item" data-guild-id="${guild.id}">
-                        <i class="fab fa-discord"></i> ${guild.name}
-                        <span class="badge bg-secondary float-start">${guild.member_count}</span>
-                    </a>`;
-        });
-        $('#servers-list').html(html);
-        
-        $('.server-item').click(function(e) {
-            e.preventDefault();
-            const guildId = $(this).data('guild-id');
-            loadServerData(guildId);
-        });
-    });
-    
-    function loadServerData(guildId) {
-        // تحميل الإحصائيات
-        $.get(`/api/stats/${guildId}`, function(data) {
-            let html = `
-                <div class="row">
-                    <div class="col-md-4 text-center">
-                        <h3>${data.member_count}</h3>
-                        <p>👥 الأعضاء</p>
-                    </div>
-                    <div class="col-md-4 text-center">
-                        <h3>${data.channel_count}</h3>
-                        <p>💬 القنوات</p>
-                    </div>
-                    <div class="col-md-4 text-center">
-                        <h3>${data.role_count}</h3>
-                        <p>🎭 الرتب</p>
-                    </div>
-                </div>
-                <div class="row mt-3">
-                    <div class="col-12">
-                        <p><strong>تاريخ الإنشاء:</strong> ${new Date(data.created_at).toLocaleDateString('ar')}</p>
-                        <p><strong>عدد التعزيزات:</strong> ${data.boost_count}</p>
-                    </div>
-                </div>
-            `;
-            $('#stats-content').html(html);
-        });
-        
-        // تحميل قائمة الأغنياء
-        $.get(`/api/economy/${guildId}`, function(data) {
-            let html = '<ol>';
-            data.forEach(user => {
-                html += `<li><strong>${user.name}</strong> - ${user.balance} عملة</li>`;
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // تحميل الإحصائيات الرئيسية
+        fetch('/api/stats')
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById('guilds-count').innerText = data.guilds;
+                document.getElementById('users-count').innerText = data.users;
+                document.getElementById('uptime').innerText = data.uptime;
             });
-            html += '</ol>';
-            $('#economy-leaderboard').html(html);
-        });
-        
-        // تحميل قائمة المستويات
-        $.get(`/api/leveling/${guildId}`, function(data) {
-            let html = '<ol>';
-            data.forEach(user => {
-                html += `<li><strong>${user.name}</strong> - المستوى ${user.level} (${user.xp} XP)</li>`;
+
+        // تحميل قائمة السيرفرات
+        fetch('/api/guilds')
+            .then(res => res.json())
+            .then(data => {
+                let html = '<div class="row">';
+                data.forEach(guild => {
+                    html += `
+                        <div class="col-md-4">
+                            <div class="server-item" onclick="loadServerData(${guild.id})">
+                                <i class="fab fa-discord"></i> ${guild.name}
+                                <span class="badge bg-secondary float-start">${guild.members} عضو</span>
+                            </div>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+                document.getElementById('servers-list').innerHTML = html;
             });
-            html += '</ol>';
-            $('#level-leaderboard').html(html);
-        });
-    }
-});
-</script>
-{% endblock %}
+
+        function loadServerData(guildId) {
+            document.getElementById('server-details').style.display = 'flex';
+            
+            // تحميل قائمة الأغنياء
+            fetch(`/api/economy/${guildId}`)
+                .then(res => res.json())
+                .then(data => {
+                    let html = '<ol>';
+                    data.forEach(user => {
+                        html += `<li><strong>${user.name}</strong> - ${user.balance} عملة</li>`;
+                    });
+                    html += '</ol>';
+                    document.getElementById('economy-leaderboard').innerHTML = html;
+                });
+
+            // تحميل قائمة المستويات
+            fetch(`/api/leveling/${guildId}`)
+                .then(res => res.json())
+                .then(data => {
+                    let html = '<ol>';
+                    data.forEach(user => {
+                        html += `<li><strong>${user.name}</strong> - المستوى ${user.level} (${user.xp} XP)</li>`;
+                    });
+                    html += '</ol>';
+                    document.getElementById('level-leaderboard').innerHTML = html;
+                });
+        }
+    </script>
+</body>
+</html>
